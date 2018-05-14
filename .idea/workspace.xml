@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="27185389-930d-4401-b4c8-f4e81af55761" name="Default" comment="" />
+    <list default="true" id="27185389-930d-4401-b4c8-f4e81af55761" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" afterPath="$PROJECT_DIR$/.gitignore" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -17,7 +19,7 @@
       <file leaf-file-name="chat_ai.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/chat_ai.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="969">
+            <state relative-caret-position="-3559">
               <caret line="173" column="32" lean-forward="false" selection-start-line="173" selection-start-column="28" selection-end-line="173" selection-end-column="32" />
               <folding>
                 <element signature="e#39#48#0" expanded="true" />
@@ -304,7 +306,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/chat_ai.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="969">
+        <state relative-caret-position="-3559">
           <caret line="173" column="32" lean-forward="false" selection-start-line="173" selection-start-column="28" selection-end-line="173" selection-end-column="32" />
           <folding>
             <element signature="e#39#48#0" expanded="true" />
