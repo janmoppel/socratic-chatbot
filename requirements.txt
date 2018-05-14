@@ -2,4 +2,3 @@ spacy==2.0.4
 textacy==0.6.1
 language-check==1.1
 nltk==3.2.4
-https://github.com/explosion/spacy-models/releases/download/en_core_web_md-2.0.0/en_core_web_md-2.0.0.tar.gz
