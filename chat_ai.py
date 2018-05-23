@@ -10,14 +10,7 @@ import language_check
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 # Data for communication
-data = {'problem': [],
-        'object': [],
-        'reasons': [],
-        'experience': [],
-        'circumstances': [],
-        'exception': [],
-        'stage': 1
-        }
+data = {'problem': [], 'object': [], 'reasons': [], 'experience': [], 'circumstances': [], 'exception': [], 'stage': 1}
 
 
 def getResponse(text):
@@ -25,6 +18,8 @@ def getResponse(text):
     response = "Sorry, I don't understand you. Can you say it again?"
 
     user_input = preprocess(text)
+
+    #spacy.displacy.serve(user_input, style='dep')
 
     sent_root = [token for token in user_input if token.head == token][0]
     stage = data['stage']
@@ -55,7 +50,7 @@ def getResponse(text):
             probs = getVariants(data['problem'])
             response = secrets.choice(reason_questions).format(objs, probs)
 
-        # STAGE II [Get Past Experience].
+        # STAGE II [Get Past Experience]. Part 1.
         elif stage == 2:
             # If there is no reasons.
             if not data['reasons']:
@@ -63,14 +58,30 @@ def getResponse(text):
                 # Get reasons and ask about experience
                 getReasons(sent_root)
 
-            exp_questions = ["So {} has never {}?", "So you don't remember that {} has ever {}?",
-                             "Can you remember, did {} ever {}?"]
+            exp_questions = ["Has {} ever experienced, that {}?", "Do you remember, that {} has ever experienced, that {}?"]
             obj = secrets.choice(data['object'])
             reason = data['reasons'].pop(0)
             data['experience'].append(reason)
-            data['stage'] = 3
+            data['stage'] = 21
 
             response = secrets.choice(exp_questions).format(obj, reason)
+
+        # STAGE II [Get Past Experience]. Part 2.
+        elif stage == 21:
+            # Determine, whether user answered affirmatively or not. If yes, then user had past experience and bot can ask about it.
+            sia = SentimentIntensityAnalyzer()
+            sent_score = sia.polarity_scores(text)
+
+            if sent_score['pos'] > sent_score['neg'] or re.search("[yY]es.*", text):
+                questions = ["Please, describe your experience.", "Please, tell me more about it."]
+                data['stage'] = 3
+                response = secrets.choice(questions)
+            else:
+                questions = ["Hmm, I see... Are you sure about that?"]
+                data['experience'].pop(0)
+                data['stage'] = 2
+
+                response = secrets.choice(questions)
 
         # STAGE III [Get Exception].
         elif stage == 3:
@@ -168,7 +179,7 @@ def getResponse(text):
             sia = SentimentIntensityAnalyzer()
             sent_score = sia.polarity_scores(text)
 
-            if sent_score['pos'] > sent_score['neg']:
+            if sent_score['pos'] > sent_score['neg'] or re.search("[yY]es.*", text):
                 response = "Nice to hear that! So now you may reconsider your problem according to it."
                 data['stage'] = 5
             else:
@@ -187,6 +198,7 @@ def getResponse(text):
     except:
         pass
 
+    print(data)
     return response
 
 
@@ -224,7 +236,7 @@ def getCircumstances(root):
     for child in root.rights:
         if not re.search(r"nsubj|mark|cc|conj|aux", child.dep_):
             # get all children
-            for i in getChildren(child):
+            for i in getRootChildren(child):
                 circum.append(i)
             circum.append(child)
 
@@ -237,23 +249,16 @@ def getCircumstances(root):
 # Get Reasons
 def getReasons(root):
     all_reasons = []
-    conjunctions = []
-    children = getChildren(root)
+    children = getRootChildren(root)
 
-    # Find problem's object
-    obj = tranform(getObjects(children))
+    # Get list of conjunctions
+    conjunctions = getConjunctions(children)
 
-    if not data['object'].__contains__(obj):
-        data['object'].append(obj)
-
-    # TODO: conj of conj
-    for child in children:
-        if child.dep_ == "conj":
-            conjunctions.append(child)
-
+    # Find all reasons from the problem_root
     all_reasons.append(getSingleReason(root))
 
-    if len(conjunctions) > 0:
+    # Check whether user input contained conjunctions
+    if conjunctions:
         for conj in conjunctions:
             all_reasons.append(getSingleReason(conj))
 
@@ -261,33 +266,51 @@ def getReasons(root):
     return
 
 
+# Get conjunctions
+def getConjunctions(children):
+    if not children:
+        return []
+
+    for child in children:
+        if child.dep_ == "conj":
+            children_of_child = getRootChildren(child)
+            return getConjunctions(children_of_child) + [child]
+    return []
+
+
 # Get single reason
 def getSingleReason(root):
     reason = []
     # Find reasons
-    for child in root.lefts:
-        if not re.search(r"nsubj|mark|cc|conj|aux", child.dep_):
-            # get all children
-            for i in getChildren(child):
-                reason.append(i)
-            reason.append(child)
-
+    reason += getReasonsFromChildren(root.lefts)
     reason.append(root)
-
-    for child in root.rights:
-        if not re.search(r"nsubj|mark|cc|conj|aux", child.dep_):
-            # get all children
-            for i in getChildren(child):
-                reason.append(i)
-            reason.append(child)
+    reason += getReasonsFromChildren(root.rights)
 
     return tranform(reason)
+
+
+# Get all children of reason
+def getReasonsFromChildren(children):
+    reason = []
+    for child in children:
+        # TODO: put advcl into data['experience']
+        if not re.search(r"advcl|advmod|mark|cc|conj|aux", child.dep_):
+            # Get all children
+            all_children = [i for i in child.subtree]
+            if len(list(all_children)) > 1:
+                # get all children
+                for i in all_children:
+                    reason.append(i)
+            else:
+                reason.append(child)
+
+    return reason
 
 
 # Get problems and objects
 def getProblems(root):
     problem = []
-    children = getChildren(root)
+    children = getRootChildren(root)
 
     # Find problem's object and the problem
     for child in children:
@@ -295,7 +318,7 @@ def getProblems(root):
             if child == root:
                 problem.append(root)
             # get all children
-            for i in getChildren(child):
+            for i in getRootChildren(child):
                 problem.append(i)
             problem.append(child)
     # TODO: multiple verbs
@@ -314,7 +337,7 @@ def getObjects(children):
     for child in children:
         if re.match(r"nsubj.*", child.dep_):
             # get all children
-            for i in getChildren(child):
+            for i in getRootChildren(child):
                 obj.append(i)
             obj.append(child)
     return obj
@@ -353,29 +376,28 @@ def tranform(text_list):
             else:
                 final_text.append(token.text)
             continue
-        final_text.append(token.lemma_)
+        final_text.append(token.text)
 
     return " ".join(final_text)
 
 
 # Get the root of the problem
 def getProblemRoot(root):
-    children = getChildren(root)
+    children = getRootChildren(root)
 
     # Try to find a ccomp (clausal complement)
     for child in children:
         if child.dep_ == "ccomp":
             return child
-        for i in getChildren(child):
+        for i in getRootChildren(child):
             if i.dep_ == "ccomp":
                 return i
     return root
 
 
-# Get all children
-def getChildren(root):
-    return [child_right for child_right in root.rights] + [child_left for child_left in root.lefts]
-
+# Get children of the current root (high-level)
+def getRootChildren(root):
+    return [child for child in root.children]
 
 # Help function for getting all results from the list
 def getVariants(list):
@@ -396,14 +418,13 @@ def live():
     while True:
         human = input("User: ")
         # End conversation
-        if re.search("[tT]hank.*", human):
-            print("Socratic Chatbot: You're welcome! Good luck!")
+        if re.search("[tT]hank.*|[bB]ye", human):
+            print("Socratic Chatbot: Good luck!")
             break
         # Bot's answer
         print("Socratic Chatbot: ", getResponse(human))
 
 
 if __name__ == '__main__':
-    # print(getResponse(
-    #   "I am concerned if I have a heart problem, because I experience faster heartbeats when I am stressed and pain in my left lung."))
-    live()
+     #print(getResponse("Yes, I have"))
+     live()
