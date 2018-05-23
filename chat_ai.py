@@ -9,15 +9,15 @@ import language_check
 
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
-# Frame with entities for communication
-frame = {'problem': [],
-         'object': [],
-         'reasons': [],
-         'experience': [],
-         'circumstances': [],
-         'exception': [],
-         'stage': 0
-         }
+# Data for communication
+data = {'problem': [],
+        'object': [],
+        'reasons': [],
+        'experience': [],
+        'circumstances': [],
+        'exception': [],
+        'stage': 1
+        }
 
 
 def getResponse(text):
@@ -27,14 +27,14 @@ def getResponse(text):
     user_input = preprocess(text)
 
     sent_root = [token for token in user_input if token.head == token][0]
-    stage = frame['stage']
+    stage = data['stage']
 
     try:
         # STAGE I [Get Problem and ask for Reasons].
         if stage == 1:
 
             # If problem hasn't been defined
-            if not frame['problem']:
+            if not data['problem']:
                 # Get problem and ask about reasons
                 problem_root = getProblemRoot(sent_root)  # Find problem's "root"
                 getProblems(problem_root)
@@ -50,25 +50,25 @@ def getResponse(text):
                     "Sorry, I lost the thread of conversation. Let's start again from your assumptions. Why did you asume that {} {}?",
                     "I apologize, but I entangled myself in this discussion. Can you please explain one more time, why do you assume that {} {}?"]
 
-            frame['stage'] = 2
-            objs = getVariants(frame['object'])
-            probs = getVariants(frame['problem'])
+            data['stage'] = 2
+            objs = getVariants(data['object'])
+            probs = getVariants(data['problem'])
             response = secrets.choice(reason_questions).format(objs, probs)
 
         # STAGE II [Get Past Experience].
         elif stage == 2:
             # If there is no reasons.
-            if not frame['reasons']:
+            if not data['reasons']:
                 # TODO: Opposite experience
                 # Get reasons and ask about experience
                 getReasons(sent_root)
 
-            exp_questions = ["So {} has never {}?", "So you don't remember that {} ever {}?",
+            exp_questions = ["So {} has never {}?", "So you don't remember that {} has ever {}?",
                              "Can you remember, did {} ever {}?"]
-            obj = secrets.choice(frame['object'])
-            reason = frame['reasons'].pop(0)
-            frame['experience'].append(reason)
-            frame['stage'] = 3
+            obj = secrets.choice(data['object'])
+            reason = data['reasons'].pop(0)
+            data['experience'].append(reason)
+            data['stage'] = 3
 
             response = secrets.choice(exp_questions).format(obj, reason)
 
@@ -76,18 +76,19 @@ def getResponse(text):
         elif stage == 3:
             # Get circumstances from the past with the same reason and try to find an exception
             getCircumstances(sent_root)
-            obj = secrets.choice(frame['object'])
+            obj = secrets.choice(data['object'])
 
             # User didn't provide any circumstances from the past
-            if not frame['circumstances']:
-                exp = getVariants(frame['experience'])
-                frame['stage'] = 31
+            if not data['circumstances']:
+                exp = getVariants(data['experience'])
+                data['stage'] = 31
                 return "Let me clear it one more time. There was no experience, when {} {}?".format(obj, exp)
 
-            # TODO: 2 more questions
-            exception_questions = ["Are you sure that {} not {} at the moment?"]
-            circumstances = getVariants(frame['circumstances'])
-            frame['stage'] = 4
+            # TODO: 1 more questions
+            exception_questions = ["Are you sure that {} not {} at the moment?",
+                                   "Can you say for sure that {} not {} at the moment?"]
+            circumstances = getVariants(data['circumstances'])
+            data['stage'] = 4
 
             response = secrets.choice(exception_questions).format(obj, circumstances)
 
@@ -95,23 +96,23 @@ def getResponse(text):
         elif stage == 31:
             # Get circumstances from the past with the same reason and try to find an exception
             getCircumstances(sent_root)
-            obj = secrets.choice(frame['object'])
+            obj = secrets.choice(data['object'])
 
             # User didn't provide any circumstances from the past second time.
             # Then eliminate unnecessary info and get back to the II stage.
-            if not frame['circumstances']:
-                frame['stage'] = 2
-                frame['experience'] = []
-                probs = getVariants(frame['problem'])
-                reasons = getVariants(frame['reasons'])
+            if not data['circumstances']:
+                data['stage'] = 2
+                data['experience'] = []
+                probs = getVariants(data['problem'])
+                reasons = getVariants(data['reasons'])
                 return "I see... Then we can continue, but let's first confirm available information. " \
                        "You assume that {} {}, because {} {}. Is this correct?".format(obj, probs, obj, reasons)
 
             # On the second time user provided with circumstances
-            # TODO: 2 more questions
-            exception_questions = ["Are you sure that {} not {} at the moment?"]
-            circumstances = getVariants(frame['circumstances'])
-            frame['stage'] = 4
+            exception_questions = ["Are you sure that {} not {} at the moment?",
+                                   "Can you say for sure that {} not {} at the moment?"]
+            circumstances = getVariants(data['circumstances'])
+            data['stage'] = 4
 
             response = secrets.choice(exception_questions).format(obj, circumstances)
 
@@ -122,17 +123,17 @@ def getResponse(text):
             sent_score = sia.polarity_scores(text)
 
             if sent_score['neg'] > sent_score['pos']:
-                frame['exception'] = frame['circumstances']
+                data['exception'] = data['circumstances']
                 # TODO: 2 more questions
                 control_questions = ["So maybe the problem is that {} {} and this is the reason, why {} {}?"]
-                obj = secrets.choice(frame['object'])
-                exc = secrets.choice(frame['exception'])
-                frame['stage'] = 41
+                obj = secrets.choice(data['object'])
+                exc = secrets.choice(data['exception'])
+                data['stage'] = 41
 
-                if len(frame['reasons']) > 1:
-                    reason = " and ".join(frame['reasons'])
+                if len(data['reasons']) > 1:
+                    reason = " and ".join(data['reasons'])
                 else:
-                    reason = frame['experience'][0] + " and " + frame['reasons'][0]
+                    reason = data['experience'][0] + " and " + data['reasons'][0]
 
                 response = secrets.choice(control_questions).format(obj, exc, obj, reason)
 
@@ -140,26 +141,26 @@ def getResponse(text):
                 # TODO: 2 more questions
                 # TODO: need better solution for used reasons
                 control_questions = ["I see... This is a complicated problem, so let's repeat all details. "
-                                     "So the problem is that {obj} {prob}, and you assume that because {obj} {reason}?"]
-                obj = secrets.choice(frame['object'])
+                                     "So the issue is that {obj} {prob}, and you assume that, because {obj} {reason}?"]
+                obj = secrets.choice(data['object'])
 
-                if not frame['reasons']:
-                    frame['stage'] = 1
+                if not data['reasons']:
+                    data['stage'] = 1
                 else:
-                    frame['stage'] = 2
+                    data['stage'] = 2
 
-                if len(frame['reasons']) > 1:
-                    reason = " and ".join(frame['reasons'])
+                if len(data['reasons']) > 1:
+                    reason = " and ".join(data['reasons'])
                 else:
-                    reason = frame['experience'][0] + " and " + frame['reasons'][0]
+                    reason = data['experience'][0] + " and " + data['reasons'][0]
 
-                problem = getVariants(frame['problem'])
+                problem = getVariants(data['problem'])
 
                 response = secrets.choice(control_questions).format(obj, problem, obj, reason)
 
-            frame['circumstances'] = []
-            frame['experience'] = []
-            frame['exception'] = []
+            data['circumstances'] = []
+            data['experience'] = []
+            data['exception'] = []
 
         # STAGE IV [Control]. Check if found exception was right.
         elif stage == 41:
@@ -169,10 +170,15 @@ def getResponse(text):
 
             if sent_score['pos'] > sent_score['neg']:
                 response = "Nice to hear that! So now you may reconsider your problem according to it."
-                frame['stage'] = 1
+                data['stage'] = 5
             else:
                 response = "Hmm, okay... Then let's start from a different perspective."
-                frame['stage'] = 2
+                data['stage'] = 2
+
+        # Succesful dialogue finish
+        elif stage == 5:
+            response = "Good luck!"
+            data['stage'] = 1
 
         # Grammar checker
         grammar = language_check.LanguageTool('en-US')
@@ -187,27 +193,28 @@ def getResponse(text):
 # TODO: custom pipelines
 # Preprocess user input
 def preprocess(plain_text):
+    meta_data = []
+
+    # Sentence tokenization. Take the last one.
     nlp = spacy.load('en')
     user_input = nlp(plain_text)
-    meta_data = []
-    plain_text = [sent.string.strip() for sent in user_input.sents][-1]
+    user_input = [sent.string.strip() for sent in user_input.sents][-1]
 
     # Remove punctuation and contractions
-    plain_text = textacy.preprocess_text(plain_text, no_punct=True, no_contractions=True)
+    plain_text = textacy.preprocess_text(user_input, no_punct=True, no_contractions=True)
     user_input = nlp(plain_text)
 
-    # Entities for preprocessing
+    # Find entities for truecasing
     ents = [e.text for e in user_input.ents]
-
     for token in user_input:
         # Lower-case everything except for Named Entities (truecasing)
         if ents.__contains__(token.text):
-            meta_data.append(token)
+            meta_data.append(token.text)
             continue
         else:
             meta_data.append(token.lower_)
-    user_input = nlp(" ".join(meta_data))
-    return user_input
+
+    return nlp(" ".join(meta_data))
 
 
 # Get circumstances
@@ -221,9 +228,9 @@ def getCircumstances(root):
                 circum.append(i)
             circum.append(child)
 
-    # If there are some circumstances, we add them to the frame
+    # If there are some circumstances, we add them to the data
     if circum:
-        frame['circumstances'].append(tranform(circum))
+        data['circumstances'].append(tranform(circum))
     return
 
 
@@ -236,8 +243,8 @@ def getReasons(root):
     # Find problem's object
     obj = tranform(getObjects(children))
 
-    if not frame['object'].__contains__(obj):
-        frame['object'].append(obj)
+    if not data['object'].__contains__(obj):
+        data['object'].append(obj)
 
     # TODO: conj of conj
     for child in children:
@@ -250,7 +257,7 @@ def getReasons(root):
         for conj in conjunctions:
             all_reasons.append(getSingleReason(conj))
 
-    frame['reasons'] = all_reasons
+    data['reasons'] = all_reasons
     return
 
 
@@ -284,7 +291,7 @@ def getProblems(root):
 
     # Find problem's object and the problem
     for child in children:
-        if not re.search(r"mark|aux.*|nsubj.*", child.dep_):  # and not re.match(r"nsubj.*", child.dep_):
+        if not re.search(r"mark|aux.*|nsubj.*", child.dep_):
             if child == root:
                 problem.append(root)
             # get all children
@@ -296,8 +303,8 @@ def getProblems(root):
 
     obj = tranform(getObjects(children))
     problem = tranform(problem)
-    frame['problem'].append(problem)
-    frame['object'].append(obj)
+    data['problem'].append(problem)
+    data['object'].append(obj)
     return
 
 
@@ -383,23 +390,20 @@ def live():
         "Socratic Chatbot: Hello, I am a Socratic Chatbot. My goal is to help people better understand their problems."
         " And I'll try my best to help you, my friend! So tell me, what is your problem? "
         "What you would like to understand?\n")
-    # Bot's answer
-    frame['stage'] = 1
-    # User starts the dialogue
     human = input("User: ")
     print("Socratic Chatbot: ", getResponse(human))
 
     while True:
         human = input("User: ")
         # End conversation
-        if human == "bye":
-            print("Socratic Chatbot: Dialog is over. Thank you.")
+        if re.search("[tT]hank.*", human):
+            print("Socratic Chatbot: You're welcome! Good luck!")
             break
         # Bot's answer
         print("Socratic Chatbot: ", getResponse(human))
 
 
 if __name__ == '__main__':
-    #print(getResponse(
-     #   "I am concerned if I have a heart problem, because I experience faster heartbeats when I am stressed and pain in my left lung."))
+    # print(getResponse(
+    #   "I am concerned if I have a heart problem, because I experience faster heartbeats when I am stressed and pain in my left lung."))
     live()
