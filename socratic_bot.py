@@ -1,5 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3.x
 # coding: utf-8
+
+"""
+    Socratic Chatbot. Console version.
+    Author: Jan Moppel.
+
+    Official github repository: https://github.com/janmoppel/socratic-chatbot
+"""
 
 import re
 import secrets
@@ -18,8 +25,6 @@ def getResponse(text):
     response = "Sorry, I don't understand you. Can you say it again?"
 
     user_input = preprocess(text)
-
-    #spacy.displacy.serve(user_input, style='dep')
 
     sent_root = [token for token in user_input if token.head == token][0]
     stage = data['stage']
@@ -54,7 +59,6 @@ def getResponse(text):
         elif stage == 2:
             # If there is no reasons.
             if not data['reasons']:
-                # TODO: Opposite experience
                 # Get reasons and ask about experience
                 getReasons(sent_root)
 
@@ -95,7 +99,6 @@ def getResponse(text):
                 data['stage'] = 31
                 return "Let me clear it one more time. There was no experience, when {} {}?".format(obj, exp)
 
-            # TODO: 1 more questions
             exception_questions = ["Are you sure that {} not {} at the moment?",
                                    "Can you say for sure that {} not {} at the moment?"]
             circumstances = getVariants(data['circumstances'])
@@ -135,7 +138,6 @@ def getResponse(text):
 
             if sent_score['neg'] > sent_score['pos']:
                 data['exception'] = data['circumstances']
-                # TODO: 2 more questions
                 control_questions = ["So maybe the problem is that {} {} and this is the reason, why {} {}?"]
                 obj = secrets.choice(data['object'])
                 exc = secrets.choice(data['exception'])
@@ -149,8 +151,6 @@ def getResponse(text):
                 response = secrets.choice(control_questions).format(obj, exc, obj, reason)
 
             else:
-                # TODO: 2 more questions
-                # TODO: need better solution for used reasons
                 control_questions = ["I see... This is a complicated problem, so let's repeat all details. "
                                      "So the issue is that {obj} {prob}, and you assume that, because {obj} {reason}?"]
                 obj = secrets.choice(data['object'])
@@ -198,11 +198,9 @@ def getResponse(text):
     except:
         pass
 
-    print(data)
     return response
 
 
-# TODO: custom pipelines
 # Preprocess user input
 def preprocess(plain_text):
     meta_data = []
@@ -231,7 +229,6 @@ def preprocess(plain_text):
 
 # Get circumstances
 def getCircumstances(root):
-    # TODO: maybe will need more developing
     circum = []
     for child in root.rights:
         if not re.search(r"nsubj|mark|cc|conj|aux", child.dep_):
@@ -293,7 +290,6 @@ def getSingleReason(root):
 def getReasonsFromChildren(children):
     reason = []
     for child in children:
-        # TODO: put advcl into data['experience']
         if not re.search(r"advcl|advmod|mark|cc|conj|aux", child.dep_):
             # Get all children
             all_children = [i for i in child.subtree]
@@ -321,7 +317,6 @@ def getProblems(root):
             for i in getRootChildren(child):
                 problem.append(i)
             problem.append(child)
-    # TODO: multiple verbs
     problem.insert(0, root)
 
     obj = tranform(getObjects(children))
@@ -399,6 +394,7 @@ def getProblemRoot(root):
 def getRootChildren(root):
     return [child for child in root.children]
 
+
 # Help function for getting all results from the list
 def getVariants(list):
     if len(list) > 1:
@@ -412,8 +408,6 @@ def live():
         "Socratic Chatbot: Hello, I am a Socratic Chatbot. My goal is to help people better understand their problems."
         " And I'll try my best to help you, my friend! So tell me, what is your problem? "
         "What you would like to understand?\n")
-    human = input("User: ")
-    print("Socratic Chatbot: ", getResponse(human))
 
     while True:
         human = input("User: ")
@@ -426,5 +420,4 @@ def live():
 
 
 if __name__ == '__main__':
-     #print(getResponse("Yes, I have"))
      live()
