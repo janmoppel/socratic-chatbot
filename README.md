@@ -3,7 +3,7 @@
 The Socratic chatbot is a conversational system that uses Socratic Questioning Method as a communication model. Its goal, is to help people rethink and better understand their problems.
 
 ## Requirements: 
-1. The system uses Python ver. 3.x. Download it from the official website: https://www.python.org/downloads/ 
+1. The system uses Python 3.x. Download it from the official website: https://www.python.org/downloads/ 
 2. Install spaCy and download english language model: https://spacy.io/usage/
 3. Install nltk: http://www.nltk.org/install.html
 4. Install textacy: https://textacy.readthedocs.io/en/stable/#installation
